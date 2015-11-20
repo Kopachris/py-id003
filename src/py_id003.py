@@ -10,6 +10,7 @@ import serial
 
 ### General ###
 ACK = 0x50
+SYNC = 0xFC
 
 ## Setting commands ##
 SET_DENOM = 0xC0
@@ -34,8 +35,8 @@ STATUS_REQ = 0x11
 
 ## Operation commands ##
 RESET = 0x40
-STACK1 = 0x41
-STACK2 = 0x42
+STACK_1 = 0x41
+STACK_2 = 0x42
 RETURN = 0x43
 HOLD = 0x44
 WAIT = 0x45
@@ -73,6 +74,34 @@ CHEATED = 0x48
 FAILURE = 0x49
 COMM_ERROR = 0x4A
 INVALID_COMMAND = 0x4B
+
+
+### Data constants ###
+
+## Escrow ##
+DENOM_1 = 0x61
+DENOM_2 = 0x62
+DENOM_3 = 0x63
+DENOM_4 = 0x64
+DENOM_5 = 0x65
+DENOM_6 = 0x66
+DENOM_7 = 0x67
+DENOM_8 = 0x68
+
+## Reject reasons ##
+INSERTION_ERR = 0x71
+MAG_ERR = 0x72
+REMAIN_ACC_ERR = 0x73
+COMP_ERR = 0X74
+CONVEYING_ERR = 0x75
+DENOM_ERR = 0x76
+PHOTO_PTN1_ERR = 0x77
+PHOTO_LVL_ERR = 0x78
+INHIBIT_ERR = 0x79
+OPERATION_ERR = 0x7B
+REMAIN_STACK_ERR = 0x7C
+LENGTH_ERR = 0x7D
+PHOTO_PTN2_ERR = 0x7E
 
 
 class BillVal(serial.Serial):
