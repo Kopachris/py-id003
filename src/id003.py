@@ -104,6 +104,40 @@ LENGTH_ERR = 0x7D
 PHOTO_PTN2_ERR = 0x7E
 
 
+def crc(message):
+    """Get CRC value for a given bytes object"""
+    
+    poly = 0x1021
+    #16bit operation register, initialized to zeros
+    reg = 0xFFFF
+    #pad the end of the message with the size of the poly
+    message += b'\x00\x00' 
+    #for each bit in the message
+    for byte in message:
+        mask = 0x80
+        while(mask > 0):
+            #left shift by one
+            reg<<=1
+            #input the next bit from the message into the right hand side of the op reg
+            if byte & mask:   
+                reg += 1
+            mask>>=1
+            #if a one popped out the left of the reg, xor reg w/poly
+            if reg > 0xffff:            
+                #eliminate any one that popped out the left
+                reg &= 0xffff           
+                #xor with the poly, this is the remainder
+                reg ^= poly
+    return reg
+
+
 class BillVal(serial.Serial):
     """Represent an ID-003 bill validator as a subclass of `serial.Serial`"""
-    pass
+    
+    def send_command(selfcommand, data=b''):
+        """Send a generic command to the bill validator"""
+        
+        length = 5 + len(data)  # SYNC, length, command, and 16-bit CRC
+        message = bytes([SYNC, length, command]) + data
+        message += crc(message)
+        return self.write(message)
