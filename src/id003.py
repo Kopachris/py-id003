@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import serial
+import time
 
 
 ###
@@ -24,7 +25,7 @@ GET_DENOM = 0x80
 GET_SECURITY = 0x81
 GET_INHIBIT = 0x83
 GET_DIRECTION = 0x84
-GET_OT_FUNC = 0x85
+GET_OPT_FUNC = 0x85
 
 GET_VERSION = 0x88
 GET_BOOT_VERSION = 0x89
@@ -104,7 +105,27 @@ LENGTH_ERR = 0x7D
 PHOTO_PTN2_ERR = 0x7E
 
 
-def crc(message):
+class CRCError(Exception):
+    """Computed CRC does not match given CRC"""
+    pass
+
+
+class SyncError(Exception):
+    """Tried to read a message, but got wrong start byte"""
+    pass
+
+
+class PowerUpError(Exception):
+    """Expected power up, but received wrong status"""
+    pass
+
+
+class AckError(Exception):
+    """Acceptor did not acknowledge as expected"""
+    pass
+
+
+def get_crc(message):
     """Get CRC value for a given bytes object"""
     
     poly = 0x1021
@@ -134,10 +155,98 @@ def crc(message):
 class BillVal(serial.Serial):
     """Represent an ID-003 bill validator as a subclass of `serial.Serial`"""
     
-    def send_command(selfcommand, data=b''):
+    def __init__(*args, **kwargs):
+        serial.Serial.__init__(*args, **kwargs)
+        if args[0].timeout is None:
+            args[0].timeout = 1
+    
+    def send_command(self, command, data=b''):
         """Send a generic command to the bill validator"""
         
         length = 5 + len(data)  # SYNC, length, command, and 16-bit CRC
         message = bytes([SYNC, length, command]) + data
-        message += crc(message)
+        message += get_crc(message)
         return self.write(message)
+        
+    def read_response(self):
+        """Parse data from the bill validator. Returns a tuple (command, data)"""
+        
+        start = self.read()
+        if len(start) = 0:
+            return (None, b'')
+        elif ord(start) != SYNC:
+            raise SyncError("Wrong start byte")
+            
+        total_length = self.read()
+        data_length = ord(total_length) - 5
+        
+        command = self.read()
+        
+        if data_length:
+            data = self.read(data_length)
+        else:
+            data = b''
+            
+        crc = self.read(2)
+        
+        # check all our data...
+        full_msg = start + total_length + command + data
+        if get_crc(message) != crc:
+            raise CRCError("CRC mismatch")
+            
+        return ord(command), data
+        
+    def power_on(self):
+        """Handle startup routines"""
+        
+        status = None
+        while status is None:
+            status, data = self.req_status()
+            
+        if status not in (POW_UP, POW_UP_BIA, POW_UP_BIS):
+            raise PowerUpError("Acceptor already powered up")
+        elif status == POW_UP:
+            self.send_command(GET_VERSION)
+            status, self.bv_version = self.read_response()
+            
+            while status != ACK:
+                self.send_command(RESET)
+                status, data = self.read_response()
+                
+            if self.req_status()[0] == INITIALIZE:
+                self.send_command(SET_DENOM, b'\x00')
+                if self.read_response() != (SET_DENOM, b'\x00'):
+                    raise AckError("Acceptor did not echo denom settings")
+                
+                self.send_command(SET_SECURITY, b'\x00')
+                if self.read_response() != (SET_SECURITY, b'\x00'):
+                    raise AckError("Acceptor did not echo security settings")
+                    
+                self.send_command(SET_OPT_FUNC, b'\x00')
+                if self.read_response() != (SET_OPT_FUNC, b'\x00'):
+                    raise AckError("Acceptor did not echo option function settings")
+                    
+                self.send_command(SET_INHIBIT, b'\x00')
+                if self.read_response() != (SET_IHIBIT, b'\x00'):
+                    raise AckError("Acceptor did not echo inhibit settings")
+        else:
+            # Acceptor should either reject or stack bill
+            while status != ACK:
+                self.send_command(RESET)
+                status, data = self.read_response()
+                    
+        while status != ENABLE:
+            status, data = self.req_status()
+            time.sleep(0.1)
+            
+    def req_status(self):
+        """Send status request to bill validator"""
+        
+        if self.in_waiting:
+            # discard any unused data
+            self.reset_input_buffer()
+            
+        self.send_command(STATUS_REQ)
+        
+        return read_response()
+        
