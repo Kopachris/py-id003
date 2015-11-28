@@ -165,17 +165,22 @@ class BillVal(serial.Serial):
         
         length = 5 + len(data)  # SYNC, length, command, and 16-bit CRC
         message = bytes([SYNC, length, command]) + data
-        message += get_crc(message)
+        crc = hex(get_crc(message)).split('x')[1]
+        crc = [int(crc[:-2], 16), int(crc[-2:], 16)]
+        message += bytes(crc)
         return self.write(message)
         
     def read_response(self):
         """Parse data from the bill validator. Returns a tuple (command, data)"""
         
-        start = self.read()
-        if len(start) = 0:
-            return (None, b'')
-        elif ord(start) != SYNC:
-            raise SyncError("Wrong start byte")
+        start = None
+        while start == None:
+            start = self.read(1)
+            if len(start) == 0:
+                return (None, b'')
+            elif ord(start) != SYNC:
+                return (0x00, b'') 
+                #raise SyncError("Wrong start byte, got %s" % start)
             
         total_length = self.read()
         data_length = ord(total_length) - 5
@@ -191,7 +196,7 @@ class BillVal(serial.Serial):
         
         # check all our data...
         full_msg = start + total_length + command + data
-        if get_crc(message) != crc:
+        if get_crc(full_msg) != crc:
             raise CRCError("CRC mismatch")
             
         return ord(command), data
@@ -200,7 +205,7 @@ class BillVal(serial.Serial):
         """Handle startup routines"""
         
         status = None
-        while status is None:
+        while status is None or status == 0x00:
             status, data = self.req_status()
         
         self.init_status = status
@@ -243,6 +248,8 @@ class BillVal(serial.Serial):
             
     def req_status(self):
         """Send status request to bill validator"""
+
+        print("Requesting status...")
         
         if self.in_waiting:
             # discard any unused data
@@ -250,5 +257,7 @@ class BillVal(serial.Serial):
             
         self.send_command(STATUS_REQ)
         
-        return read_response()
+        stat, data = self.read_response()
+        print((stat, data))
+        return stat, data
         

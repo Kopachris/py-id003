@@ -1,30 +1,32 @@
 #!/usr/bin/env python3
 
 from id003 import BillVal
+import id003
 import serial.tools.list_ports
 import serial
 import time
 
 
 def main():
-    avail_ports = serial.tools.list_ports.comports()
-    if not len(avail_ports):
-        raise Exception("No serial port available")
-    else:
-        com_port = -1
-        while -1 < com_port < len(avail_ports):
-            for i, p in enumerate(avail_ports):
-                print(i + ') ' + p)
-            com_port = int(input("Which com port? "))
-        port = avail_ports[com_port]
+    #avail_ports = list(serial.tools.list_ports.comports())
+    #if not len(avail_ports):
+    #    raise Exception("No serial port available")
+    #else:
+    #    com_port = -1
+    #    while -1 < com_port < len(avail_ports):
+    #        for i, p in enumerate(avail_ports):
+    #            print(i + ') ' + p)
+    #        com_port = int(input("Which com port? "))
+    #    port = avail_ports[com_port]
         
     baud = None
-    while baud not in (9600, 19200):
+    while baud is None:
         baud = int(input("Baud rate? (Only 9600 and 19200 supported) "))
     
-    timeout = 1.0
+    timeout = 0.2
     
-    bv = BillVal(port, baud, serial.EIGHTBITS, serial.PARITY_EVEN, timeout)
+    bv = BillVal('COM11', baud, serial.EIGHTBITS, serial.PARITY_NONE, timeout=timeout)
+    bv.send_command(id003.RESET)
     bv.power_on()
     
     if bv.init_status == id003.POW_UP:
