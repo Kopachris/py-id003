@@ -202,6 +202,8 @@ class BillVal(serial.Serial):
         status = None
         while status is None:
             status, data = self.req_status()
+        
+        self.init_status = status
             
         if status not in (POW_UP, POW_UP_BIA, POW_UP_BIS):
             raise PowerUpError("Acceptor already powered up")
