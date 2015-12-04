@@ -25,21 +25,25 @@ def main():
     
     timeout = 0.2
     
-    bv = BillVal('COM11', baud, serial.EIGHTBITS, serial.PARITY_NONE, timeout=timeout)
-    bv.send_command(id003.RESET)
-    bv.power_on()
+    bv = BillVal('COM11', baud, serial.EIGHTBITS, serial.PARITY_EVEN, timeout=timeout)
+    #bv.send_command(id003.RESET)
+    #bv.power_on()
+    #bv.req_status()
     
-    if bv.init_status == id003.POW_UP:
-        print("BV powered up normally, version:\n\t" + bv.bv_version)
-    elif bv.init_status == id003.POW_UP_BIA:
-        print("BV powered up with bill in acceptor.")
-    elif bv.init_status == id003.POW_UP_BIS:
-        print("BV powered up with bill in stacker.")
+    #if bv.init_status == id003.POW_UP:
+    #    print("BV powered up normally, version:\n\t" + bv.bv_version)
+    #elif bv.init_status == id003.POW_UP_BIA:
+    #    print("BV powered up with bill in acceptor.")
+    #elif bv.init_status == id003.POW_UP_BIS:
+    #    print("BV powered up with bill in stacker.")
         
     while True:
-        status, data = bv.req_status()
+        try:
+            status, data = bv.req_status()
+        except:
+            print('Exception')
         
-        print(hex(status) + ' ' + data)
+        #print(hex(status) + ' ' + data.decode())
         
         time.sleep(0.2)
 
