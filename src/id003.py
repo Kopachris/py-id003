@@ -166,8 +166,12 @@ def get_crc(message):
     crc = 0x0000
     for byte in message:
         crc = (crc>>8)^TABLE[(crc^byte)&0xff]
+        
+    # convert to bytes, big-endian
+    crc = hex(crc).split('x')[1]
+    crc = [int(crc[-2:], 16), int(crc[:-2], 16)]
 
-    return crc
+    return bytes(crc)
 
 
 class BillVal(serial.Serial):
@@ -183,9 +187,8 @@ class BillVal(serial.Serial):
         
         length = 5 + len(data)  # SYNC, length, command, and 16-bit CRC
         message = bytes([SYNC, length, command]) + data
-        crc = hex(get_crc(message)).split('x')[1]
-        crc = [int(crc[-2:], 16), int(crc[:-2], 16)]
-        message += bytes(crc)
+        message += get_crc(message)
+        
         return self.write(message)
         
     def read_response(self):
@@ -196,9 +199,8 @@ class BillVal(serial.Serial):
             start = self.read(1)
             if len(start) == 0:
                 return (None, b'')
-            #elif ord(start) != SYNC:
-                #return (0x00, b'') 
-                #raise SyncError("Wrong start byte, got %s" % start)
+            elif ord(start) != SYNC:
+                raise SyncError("Wrong start byte, got %s" % start)
             
         total_length = self.read()
         data_length = ord(total_length) - 5
@@ -214,8 +216,8 @@ class BillVal(serial.Serial):
         
         # check all our data...
         full_msg = start + total_length + command + data
-        #if get_crc(full_msg) != crc:
-            #raise CRCError("CRC mismatch")
+        if get_crc(full_msg) != crc:
+            raise CRCError("CRC mismatch")
             
         return ord(command), data
         
