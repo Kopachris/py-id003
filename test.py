@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-from id003 import BillVal
 import id003
-import serial.tools.list_ports
 import serial
 import time
 
@@ -13,7 +11,7 @@ def main():
     baud = 9600
     port = 'COM11'  # JCM UAC device (USB serial adapter)
     
-    bv = BillVal(port, baud, serial.EIGHTBITS, serial.PARITY_EVEN, timeout=timeout)
+    bv = id003BillVal(port, baud, serial.EIGHTBITS, serial.PARITY_EVEN, timeout=timeout)
     bv.power_on()
     
     if bv.init_status == id003.POW_UP:
