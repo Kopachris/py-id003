@@ -19,6 +19,8 @@ SET_SECURITY = 0xC1
 SET_INHIBIT = 0xC3
 SET_DIRECTION = 0xC4
 SET_OPT_FUNC = 0xC5
+SET_BAR_FUNC = 0xC6
+SET_BAR_INHIBIT = 0xC7
 
 ## Setting status requests ##
 GET_DENOM = 0x80
@@ -26,6 +28,8 @@ GET_SECURITY = 0x81
 GET_INHIBIT = 0x83
 GET_DIRECTION = 0x84
 GET_OPT_FUNC = 0x85
+GET_BAR_FUNC = 0x86
+GET_BAR_INHIBIT = 0x87
 
 GET_VERSION = 0x88
 GET_BOOT_VERSION = 0x89
@@ -88,6 +92,7 @@ DENOM_5 = 0x65
 DENOM_6 = 0x66
 DENOM_7 = 0x67
 DENOM_8 = 0x68
+BARCODE_TKT = 0x6F
 
 ## Reject reasons ##
 INSERTION_ERR = 0x71
@@ -165,10 +170,9 @@ def get_crc(message):
 
     crc = 0x0000
     for byte in message:
-        crc = (crc>>8)^TABLE[(crc^byte)&0xff]
+        crc = (crc >> 8) ^ TABLE[(crc ^ byte) & 0xff]
         
     # convert to bytes, big-endian
-    #print("CRC: %s" % hex(crc))
     crc = '%04x' % crc
     crc = [int(crc[-2:], 16), int(crc[:-2], 16)]
 
@@ -252,36 +256,32 @@ class BillVal(serial.Serial):
                 self.send_command(SET_DENOM, b'\x82\x00')
                 status, data = self.read_response()
                 if (status, data) != (SET_DENOM, b'\x82\x00'):
-                    print("Acceptor did not echo denom settings, got: %s" % [hex(status), data])
-                    #raise AckError("Acceptor did not echo denom settings")
+                    raise AckError("Acceptor did not echo denom settings")
                 
                 self.send_command(SET_SECURITY, b'\x00\x00')
                 status, data = self.read_response()
                 if (status, data) != (SET_SECURITY, b'\x00\x00'):
-                    print("Acceptor did not echo security settings, got: %s" % [hex(status), data])
-                    #raise AckError("Acceptor did not echo security settings")
+                    raise AckError("Acceptor did not echo security settings")
                     
                 self.send_command(SET_OPT_FUNC, b'\x00\x00')
                 status, data = self.read_response()
                 if (status, data) != (SET_OPT_FUNC, b'\x00\x00'):
-                    print("Acceptor did not echo option function settings, got: %s" % [hex(status), data])
-                    #raise AckError("Acceptor did not echo option function settings")
+                    raise AckError("Acceptor did not echo option function settings")
                     
                 self.send_command(SET_INHIBIT, b'\x00')
                 status, data = self.read_response()
                 if (status, data) != (SET_INHIBIT, b'\x00'):
-                    print("Acceptor did not echo inhibit settings, got: %s" % [hex(status), data])
-                    #raise AckError("Acceptor did not echo inhibit settings")
+                    raise AckError("Acceptor did not echo inhibit settings")
                 
-                self.send_command(0xc6, b'\x01\x12')
+                self.send_command(SET_BAR_FUNC, b'\x01\x12')
                 status, data = self.read_response()
-                if (status, data) != (0xc6, b'\x01\x12'):
-                    print("Acceptor did not echo ticket settings, got: %s" % [hex(status), data])
+                if (status, data) != (SET_BAR_FUNC, b'\x01\x12'):
+                    raise AckError("Acceptor did not echo barcode settings")
 
-                self.send_command(0xc7, b'\x00')
+                self.send_command(SET_BAR_INHIBIT, b'\x00')
                 status, data = self.read_response()
-                if (status, data) != (0xc7, b'\x00'):
-                    print("Acceptor did not echo ticket inhibit settings, got: %s" % [hex(status), data])
+                if (status, data) != (SET_BAR_INHIBIT, b'\x00'):
+                    raise AckError("Acceptor did not echo barcode inhibit settings")
         else:
             # Acceptor should either reject or stack bill
             while status != ACK:
