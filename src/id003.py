@@ -168,7 +168,8 @@ def get_crc(message):
         crc = (crc>>8)^TABLE[(crc^byte)&0xff]
         
     # convert to bytes, big-endian
-    crc = hex(crc).split('x')[1]
+    #print("CRC: %s" % hex(crc))
+    crc = '%04x' % crc
     crc = [int(crc[-2:], 16), int(crc[:-2], 16)]
 
     return bytes(crc)
@@ -179,6 +180,8 @@ class BillVal(serial.Serial):
     
     def __init__(*args, **kwargs):
         serial.Serial.__init__(*args, **kwargs)
+        args[0].bv_status = None
+        args[0].bv_version = None
         if args[0].timeout is None:
             args[0].timeout = 1
     
@@ -199,7 +202,9 @@ class BillVal(serial.Serial):
             start = self.read(1)
             if len(start) == 0:
                 return (None, b'')
-            elif ord(start) != SYNC:
+            elif start == b'\x00':
+                return (None, b'')
+            elif ord(start) != SYNC and start:
                 raise SyncError("Wrong start byte, got %s" % start)
             
         total_length = self.read()
@@ -233,29 +238,50 @@ class BillVal(serial.Serial):
         if status not in (POW_UP, POW_UP_BIA, POW_UP_BIS):
             raise PowerUpError("Acceptor already powered up")
         elif status == POW_UP:
+            print("Powering up...\nGetting version...")
             self.send_command(GET_VERSION)
             status, self.bv_version = self.read_response()
+            print(self.bv_version)
             
             while status != ACK:
+                print("Sending reset command")
                 self.send_command(RESET)
                 status, data = self.read_response()
                 
             if self.req_status()[0] == INITIALIZE:
-                self.send_command(SET_DENOM, b'\x00')
-                if self.read_response() != (SET_DENOM, b'\x00'):
-                    raise AckError("Acceptor did not echo denom settings")
+                self.send_command(SET_DENOM, b'\x82\x00')
+                status, data = self.read_response()
+                if (status, data) != (SET_DENOM, b'\x82\x00'):
+                    print("Acceptor did not echo denom settings, got: %s" % [hex(status), data])
+                    #raise AckError("Acceptor did not echo denom settings")
                 
-                self.send_command(SET_SECURITY, b'\x00')
-                if self.read_response() != (SET_SECURITY, b'\x00'):
-                    raise AckError("Acceptor did not echo security settings")
+                self.send_command(SET_SECURITY, b'\x00\x00')
+                status, data = self.read_response()
+                if (status, data) != (SET_SECURITY, b'\x00\x00'):
+                    print("Acceptor did not echo security settings, got: %s" % [hex(status), data])
+                    #raise AckError("Acceptor did not echo security settings")
                     
-                self.send_command(SET_OPT_FUNC, b'\x00')
-                if self.read_response() != (SET_OPT_FUNC, b'\x00'):
-                    raise AckError("Acceptor did not echo option function settings")
+                self.send_command(SET_OPT_FUNC, b'\x00\x00')
+                status, data = self.read_response()
+                if (status, data) != (SET_OPT_FUNC, b'\x00\x00'):
+                    print("Acceptor did not echo option function settings, got: %s" % [hex(status), data])
+                    #raise AckError("Acceptor did not echo option function settings")
                     
                 self.send_command(SET_INHIBIT, b'\x00')
-                if self.read_response() != (SET_IHIBIT, b'\x00'):
-                    raise AckError("Acceptor did not echo inhibit settings")
+                status, data = self.read_response()
+                if (status, data) != (SET_INHIBIT, b'\x00'):
+                    print("Acceptor did not echo inhibit settings, got: %s" % [hex(status), data])
+                    #raise AckError("Acceptor did not echo inhibit settings")
+                
+                self.send_command(0xc6, b'\x01\x12')
+                status, data = self.read_response()
+                if (status, data) != (0xc6, b'\x01\x12'):
+                    print("Acceptor did not echo ticket settings, got: %s" % [hex(status), data])
+
+                self.send_command(0xc7, b'\x00')
+                status, data = self.read_response()
+                if (status, data) != (0xc7, b'\x00'):
+                    print("Acceptor did not echo ticket inhibit settings, got: %s" % [hex(status), data])
         else:
             # Acceptor should either reject or stack bill
             while status != ACK:
@@ -268,8 +294,6 @@ class BillVal(serial.Serial):
             
     def req_status(self):
         """Send status request to bill validator"""
-
-        print("Requesting status...")
         
         if self.in_waiting:
             # discard any unused data
@@ -278,9 +302,9 @@ class BillVal(serial.Serial):
         self.send_command(STATUS_REQ)
         
         stat, data = self.read_response()
-        if stat is not None:
+        if (stat, data) != self.bv_status and self.bv_status is not None:
             print((hex(stat), data))
-        else:
-            print(None)
+
+        self.bv_status = (stat, data)
         return stat, data
         
