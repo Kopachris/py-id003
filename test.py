@@ -11,7 +11,7 @@ def main():
     baud = 9600
     port = 'COM11'  # JCM UAC device (USB serial adapter)
     
-    bv = id003BillVal(port, baud, serial.EIGHTBITS, serial.PARITY_EVEN, timeout=timeout)
+    bv = id003.BillVal(port, baud, serial.EIGHTBITS, serial.PARITY_EVEN, timeout=timeout)
     bv.power_on()
     
     if bv.init_status == id003.POW_UP:
