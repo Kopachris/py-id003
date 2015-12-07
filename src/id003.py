@@ -308,3 +308,15 @@ class BillVal(serial.Serial):
         self.bv_status = (stat, data)
         return stat, data
         
+    def poll(interval=0.2):
+        """Send a status request to the bill validator every `interval` seconds
+        and fire event handlers. `interval` defaults to 200 ms, per ID-003 spec.
+        """
+        
+        while True:
+            poll_start = time.now()
+            status, data = self.req_status()
+            wait = interval - (time.now() - poll_start)
+            time.sleep(wait)
+            
+        
