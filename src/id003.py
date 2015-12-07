@@ -64,10 +64,13 @@ DISABLE = 0x1A
 INHIBIT = 0x1A  # Alias for DISABLE
 INITIALIZE = 0x1B
 
+NORM_STATUSES = tuple(range(0x11, 0x1C))
+
 ## Power up status ##
 POW_UP = 0x40
 POW_UP_BIA = 0x41  # Power up with bill in acceptor
 POW_UP_BIS = 0x42  # Power up with bill in stacker
+POW_STATUSES = 0x40, 0x41, 0x42
 
 ## Error status ##
 STACKER_FULL = 0x43
@@ -79,6 +82,8 @@ CHEATED = 0x48
 FAILURE = 0x49
 COMM_ERROR = 0x4A
 INVALID_COMMAND = 0x4B
+
+ERROR_STATUSES = tuple(range(0x43, 0x4C))
 
 
 ### Data constants ###
@@ -94,6 +99,16 @@ DENOM_7 = 0x67
 DENOM_8 = 0x68
 BARCODE_TKT = 0x6F
 
+ESCROW_USA = {  # 2 and 8 are reserved
+    DENOM_1: '$1',
+    DENOM_3: '$5',
+    DENOM_4: '$10',
+    DENOM_5: '$20',
+    DENOM_6: '$50',
+    DENOM_7: '$100',
+    BARCODE_TKT: 'TITO',
+}
+
 ## Reject reasons ##
 INSERTION_ERR = 0x71
 MAG_ERR = 0x72
@@ -108,6 +123,8 @@ OPERATION_ERR = 0x7B
 REMAIN_STACK_ERR = 0x7C
 LENGTH_ERR = 0x7D
 PHOTO_PTN2_ERR = 0x7E
+
+REJECT_REASONS = tuple(range(0x71, 0x7F))
 
 
 class CRCError(Exception):
