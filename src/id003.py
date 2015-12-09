@@ -201,10 +201,12 @@ class BillVal(serial.Serial):
     
     def __init__(*args, **kwargs):
         serial.Serial.__init__(*args, **kwargs)
-        args[0].bv_status = None
-        args[0].bv_version = None
-        if args[0].timeout is None:
-            args[0].timeout = 1
+        
+        self = args[0]
+        self.bv_status = None
+        self.bv_version = None
+        if self.timeout is None:
+            self.timeout = 1
     
     def send_command(self, command, data=b''):
         """Send a generic command to the bill validator"""
