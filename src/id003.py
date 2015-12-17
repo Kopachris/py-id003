@@ -140,7 +140,28 @@ REJECT_REASONS = {
     PHOTO_PTN2_ERR: "Photo pattern 2 error",
 }
 
-#REJECT_REASONS = tuple(range(0x71, 0x7F))
+## Failure codes ##
+STACK_MOTOR_FAULT = 0xA2
+TRANS_SPEED_FAULT = 0xA5
+TRANS_MOTOR_FAULT = 0xA6
+CAN_NOT_RDY = 0xAB
+HEAD_REMOVE = 0xAF
+BOOT_ROM_FAULT = 0xB0
+EXT_ROM_FAULT = 0xB1
+ROM_FAULT = 0xB2
+EXT_ROM_WRT_FAULT = 0xB3
+
+FAILURE_CODES = {
+    STACK_MOTOR_FAULT: "Stacker motor failure",
+    TRANS_SPEED_FAULT: "Transport motor speed failure",
+    TRANS_MOTOR_FAULT: "Transport motor failure",
+    CAN_NOT_RDY: "Cash box not ready",
+    HEAD_REMOVE: "Validator head removed",
+    BOOT_ROM_FAULT: "Boot ROM failure",
+    EXT_ROM_FAULT: "External ROM failure",
+    ROM_FAULT: "ROM failure",
+    EXT_ROM_WRT_FAULT: "External ROM write failure",
+}
 
 
 class CRCError(Exception):
@@ -257,31 +278,35 @@ class BillVal(serial.Serial):
         self.bv_denoms = ESCROW_USA
     
     def _on_stacker_full(self, data):
-        pass
+        print("Stacker full.")
     
     def _on_stacker_open(self, data):
-        pass
+        print("Stacker open.")
     
     def _on_acceptor_jam(self, data):
-        pass
+        print("Acceptor jam.")
     
     def _on_stacker_jam(self, data):
-        pass
+        print("Stacker jam.")
     
     def _on_pause(self, data):
-        pass
+        print("BV paused. If there's a second bill being inserted, remove it.")
     
     def _on_cheated(self, data):
-        pass
+        print("BV cheated.")
     
     def _on_failure(self, data):
-        pass
+        fault = ord(data)
+        if fault not in FAILURE_CODES:
+            print("Unknown failure: %02x" % fault)
+        else:
+            print(FAILURE_CODES[fault])
     
     def _on_comm_error(self, data):
-        pass
+        print("Communication error.")
     
     def _on_invalid_command(self, data):
-        pass
+        print("Invalid command.")
     
     def _on_idle(self, data):
         print("BV idle.")
@@ -304,7 +329,7 @@ class BillVal(serial.Serial):
             s_r = input("(S)tack or (R)eturn? ").lower()
             if s_r == 's':
                 print("Telling BV to stack...")
-                self.accepting_denom = escrow
+                self.accepting_denom = self.bv_denoms[escrow]
                 status = None
                 while status != ACK:
                     self.send_command(STACK_1, b'')
@@ -345,7 +370,7 @@ class BillVal(serial.Serial):
         print("BV Returning...")
     
     def _on_holding(self, data):
-        pass
+        print("Holding..."
     
     def _on_inhibit(self, data):
         print("BV inhibited.")
@@ -359,7 +384,9 @@ class BillVal(serial.Serial):
         self.bv_status = None
     
     def _on_init(self, data):
-        pass
+        print("BV waiting for initialization")
+        input("Press enter to reinitialize the BV.")
+        self.initialize()
     
     def send_command(self, command, data=b''):
         """Send a generic command to the bill validator"""
