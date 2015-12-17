@@ -14,7 +14,7 @@ def main():
     port = 'COM11'  # JCM UAC device (USB serial adapter)
     
     bv = BillVal(port, baud, serial.EIGHTBITS, serial.PARITY_EVEN, timeout=timeout)
-    print("Please plug in bill validator.")
+    print("Please connect bill validator.")
     bv.power_on()
     
     if bv.init_status == id003.POW_UP:
