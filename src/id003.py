@@ -124,6 +124,22 @@ REMAIN_STACK_ERR = 0x7C
 LENGTH_ERR = 0x7D
 PHOTO_PTN2_ERR = 0x7E
 
+REJECT_REASONS = {
+    INSERTION_ERR: "Insertion error",
+    MAG_ERROR: "Magnetic sensor error",
+    REMAIN_ACC_ERR: "Remaining bills in head error",
+    COMP_ERR: "Compensation error",
+    CONVEYING_ERR: "Conveying error",
+    DENOM_ERR: "Error assessing denomination",
+    PHOTO_PTN1_ERR: "Photo pattern 1 error",
+    PHOTO_LVL_ERR: "Photo level error",
+    INHIBIT_ERR: "Inhibited",
+    OPERATION_ERR: "Operation error",
+    REMAIN_STACK_ERR: "Remaining bills in stacker error",
+    LENGTH_ERR: "Length error",
+    PHOTO_PTN2_ERR: "Photo pattern 2 error",
+}
+
 REJECT_REASONS = tuple(range(0x71, 0x7F))
 
 
@@ -144,6 +160,11 @@ class PowerUpError(Exception):
 
 class AckError(Exception):
     """Acceptor did not acknowledge as expected"""
+    pass
+
+
+class DenomError(Exception):
+    """Unknown denomination reported in escrow"""
     pass
 
 
@@ -203,10 +224,82 @@ class BillVal(serial.Serial):
         serial.Serial.__init__(*args, **kwargs)
         
         self = args[0]
+        
         self.bv_status = None
         self.bv_version = None
         if self.timeout is None:
             self.timeout = 1
+            
+        self._events = {
+            IDLE: self._on_idle,
+            ACEPTING: self._on_accepting,
+            ESCROW: self._on_escrow,
+            STACKING: self._on_stacking,
+            VEND_VALID: self._on_vend_valid,
+            STACKED: self._on_stacked,
+            REJECTING: self._on_rejecting,
+            RETURNING: self._on_returning,
+            HOLDING: self._on_holding,
+            INHIBIT: self._on_inhibit,
+            INITIALIZE: self._on_init,
+        }
+        
+        # TODO get this from version during powerup
+        self._escrow = ESCROW_USA
+    
+    def _on_idle(self, data):
+        print("BV idle.")
+    
+    def _on_accepting(self, data):
+        print("BV accepting...")
+    
+    def _on_escrow(self, data):
+        escrow = data[0]
+        if escrow not in self._escrow:
+            raise DenomError("Unknown denom in escrow: %x" % escrow)
+        elif escrow == BARCODE_TKT:
+            barcode = data[1:]
+            print("Barcode: %s" % barcode)
+        else:
+            print("Denom: %s" % self._escrow[escrow])
+            
+        s_r = ''
+        while s_r not in ('s', 'r'):
+            s_r = input("(S)tack or (R)eturn? ").lower()
+            if s_r == 's':
+                self.accepting_denom = escrow
+                status = None
+                while status != ACK:
+                    self.send_command(STACK_2, b'')
+                    status, data = self.read_response()
+            elif s_r == 'r':
+                status = None
+                while status != ACK:
+                    self.send_command(REJECT, b'')
+                    status, data = self.read_response()
+                    
+    
+    def _on_stacking(self, data):
+        print("BV stacking...")
+    
+    def _on_vend_valid(self, data):
+        print("Vend valid for %s." % self.accepting_denom)
+        self.accepting_denom = None
+    
+    def _on_rejecting(self, data):
+        print("BV rejecting, reason: %s" % REJECT_REASONS[data])
+    
+    def _on_returning(self, data):
+        print("BV Returning...")
+    
+    def _on_holding(self, data):
+        pass
+    
+    def _on_inhibit(self, data):
+        print("BV inhibited.")
+    
+    def _on_init(self, data):
+        pass
     
     def send_command(self, command, data=b''):
         """Send a generic command to the bill validator"""
@@ -307,9 +400,9 @@ class BillVal(serial.Serial):
                 self.send_command(RESET)
                 status, data = self.read_response()
                     
-        while status != ENABLE:
-            status, data = self.req_status()
-            time.sleep(0.1)
+        # typically call BillVal.poll() after this
+        
+        return self.init_status
             
     def req_status(self):
         """Send status request to bill validator"""
@@ -330,11 +423,16 @@ class BillVal(serial.Serial):
     def poll(interval=0.2):
         """Send a status request to the bill validator every `interval` seconds
         and fire event handlers. `interval` defaults to 200 ms, per ID-003 spec.
+        
+        Event handlers are only fired upon status changes.
         """
         
         while True:
             poll_start = time.now()
             status, data = self.req_status()
+            if status != self.cur_status and status in self._events.keys():
+                self._events[status](data)
+            self.cur_status = status
             wait = interval - (time.now() - poll_start)
             time.sleep(wait)
             
