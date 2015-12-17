@@ -309,6 +309,14 @@ class BillVal(serial.Serial):
     
     def _on_inhibit(self, data):
         print("BV inhibited.")
+        input("Press enter to reset and initialize BV.")
+        status = None
+        while status != ACK:
+            self.send_command(RESET, b'')
+            status, data = self.read_response()
+        if self.req_status()[0] == INITIALIZE:
+            self.initialize()
+        self.bv_status = None
     
     def _on_init(self, data):
         pass
@@ -385,6 +393,9 @@ class BillVal(serial.Serial):
             while status != ACK:
                 self.send_command(RESET)
                 status, data = self.read_response()
+                
+            if self.req_status()[0] == INITIALIZE:
+                self.initialize()
                     
         # typically call BillVal.poll() after this
         
