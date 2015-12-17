@@ -379,35 +379,7 @@ class BillVal(serial.Serial):
                 status, data = self.read_response()
                 
             if self.req_status()[0] == INITIALIZE:
-                self.send_command(SET_DENOM, b'\x82\x00')
-                status, data = self.read_response()
-                if (status, data) != (SET_DENOM, b'\x82\x00'):
-                    raise AckError("Acceptor did not echo denom settings")
-                
-                self.send_command(SET_SECURITY, b'\x00\x00')
-                status, data = self.read_response()
-                if (status, data) != (SET_SECURITY, b'\x00\x00'):
-                    raise AckError("Acceptor did not echo security settings")
-                    
-                self.send_command(SET_OPT_FUNC, b'\x00\x00')
-                status, data = self.read_response()
-                if (status, data) != (SET_OPT_FUNC, b'\x00\x00'):
-                    raise AckError("Acceptor did not echo option function settings")
-                    
-                self.send_command(SET_INHIBIT, b'\x00')
-                status, data = self.read_response()
-                if (status, data) != (SET_INHIBIT, b'\x00'):
-                    raise AckError("Acceptor did not echo inhibit settings")
-                
-                self.send_command(SET_BAR_FUNC, b'\x01\x12')
-                status, data = self.read_response()
-                if (status, data) != (SET_BAR_FUNC, b'\x01\x12'):
-                    raise AckError("Acceptor did not echo barcode settings")
-
-                self.send_command(SET_BAR_INHIBIT, b'\x00')
-                status, data = self.read_response()
-                if (status, data) != (SET_BAR_INHIBIT, b'\x00'):
-                    raise AckError("Acceptor did not echo barcode inhibit settings")
+                self.initialize()
         else:
             # Acceptor should either reject or stack bill
             while status != ACK:
@@ -418,6 +390,46 @@ class BillVal(serial.Serial):
         
         return self.init_status
             
+    def initialize(self, denom=[0x82, 0], security=[0, 0], opt_func=[0, 0], 
+                   inhibit=[0], bar_func=[0x01, 0x12], bar_inhibit=[0]):
+        """Initialize BV settings"""
+        
+        denom = bytes(denom)
+        self.send_command(SET_DENOM, denom)
+        status, data = self.read_response()
+        if (status, data) != (SET_DENOM, denom):
+            raise AckError("Acceptor did not echo denom settings")
+        
+        security = bytes(security)
+        self.send_command(SET_SECURITY, security)
+        status, data = self.read_response()
+        if (status, data) != (SET_SECURITY, security):
+            raise AckError("Acceptor did not echo security settings")
+            
+        opt_func = bytes(opt_func)
+        self.send_command(SET_OPT_FUNC, opt_func)
+        status, data = self.read_response()
+        if (status, data) != (SET_OPT_FUNC, opt_func):
+            raise AckError("Acceptor did not echo option function settings")
+            
+        inhibit = bytes(inhibit)
+        self.send_command(SET_INHIBIT, inhibit)
+        status, data = self.read_response()
+        if (status, data) != (SET_INHIBIT, inhibit):
+            raise AckError("Acceptor did not echo inhibit settings")
+        
+        bar_func = bytes(bar_func)
+        self.send_command(SET_BAR_FUNC, bar_func)
+        status, data = self.read_response()
+        if (status, data) != (SET_BAR_FUNC, bar_func):
+            raise AckError("Acceptor did not echo barcode settings")
+
+        bar_inhibit = bytes(bar_inhibit)
+        self.send_command(SET_BAR_INHIBIT, bar_inhibit)
+        status, data = self.read_response()
+        if (status, data) != (SET_BAR_INHIBIT, bar_inhibit):
+            raise AckError("Acceptor did not echo barcode inhibit settings")
+    
     def req_status(self):
         """Send status request to bill validator"""
         
