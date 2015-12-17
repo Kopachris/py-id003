@@ -140,7 +140,7 @@ REJECT_REASONS = {
     PHOTO_PTN2_ERR: "Photo pattern 2 error",
 }
 
-REJECT_REASONS = tuple(range(0x71, 0x7F))
+#REJECT_REASONS = tuple(range(0x71, 0x7F))
 
 
 class CRCError(Exception):
@@ -299,7 +299,11 @@ class BillVal(serial.Serial):
         print("Stacked.")
 
     def _on_rejecting(self, data):
-        print("BV rejecting, reason: %s" % REJECT_REASONS[data])
+        reason = ord(data)
+        if reason in REJECT_REASONS:
+            print("BV rejecting, reason: %s" % REJECT_REASONS[reason])
+        else:
+            print("BV rejecting, unknown reason: %02x" % reason)
     
     def _on_returning(self, data):
         print("BV Returning...")
