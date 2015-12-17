@@ -2,6 +2,7 @@
 Python module for interacting with bill validators using JCM's ID-003 serial protocol
 
 ## Usage
+0. This program has only been tested to work with UBA-10 with jumpers in the LEFT position. UBA-10 with jumpers in the RIGHT position did not work in testing. This program hasn't been tested with UBA-14, iVizion, or WBA yet (TODO).
 0. Ensure all four of the JCM UAC device's DIP switches are set to ON
 1. Power on the JCM UAC device
 2. Plug the JCM UAC device into your computer's USB port
