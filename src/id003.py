@@ -370,7 +370,7 @@ class BillVal(serial.Serial):
         print("BV Returning...")
     
     def _on_holding(self, data):
-        print("Holding..."
+        print("Holding...")
     
     def _on_inhibit(self, data):
         print("BV inhibited.")
@@ -463,6 +463,9 @@ class BillVal(serial.Serial):
                 
             if self.req_status()[0] == INITIALIZE:
                 self.initialize()
+
+        while self.req_status()[0] == INITIALIZE:
+            time.sleep(0.2)
                     
         # typically call BillVal.poll() after this
         
