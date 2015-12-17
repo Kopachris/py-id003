@@ -242,10 +242,46 @@ class BillVal(serial.Serial):
             HOLDING: self._on_holding,
             INHIBIT: self._on_inhibit,
             INITIALIZE: self._on_init,
+            STACKER_FULL: self._on_stacker_full,
+            STACKER_OPEN: self._on_stacker_open,
+            ACCEPTOR_JAM: self._on_acceptor_jam,
+            STACKER_JAM: self._on_stacker_jam,
+            PAUSE: self._on_pause,
+            CHEATED: self._on_cheated,
+            FAILURE: self._on_failure,
+            COMM_ERROR: self._on_comm_error,
+            INVALID_COMMAND: self._on_invalid_command,
         }
         
         # TODO get this from version during powerup
         self.bv_denoms = ESCROW_USA
+    
+    def _on_stacker_full(self, data):
+        pass
+    
+    def _on_stacker_open(self, data):
+        pass
+    
+    def _on_acceptor_jam(self, data):
+        pass
+    
+    def _on_stacker_jam(self, data):
+        pass
+    
+    def _on_pause(self, data):
+        pass
+    
+    def _on_cheated(self, data):
+        pass
+    
+    def _on_failure(self, data):
+        pass
+    
+    def _on_comm_error(self, data):
+        pass
+    
+    def _on_invalid_command(self, data):
+        pass
     
     def _on_idle(self, data):
         print("BV idle.")
