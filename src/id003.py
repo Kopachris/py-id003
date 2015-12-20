@@ -294,18 +294,14 @@ def get_crc(message):
     return bytes(crc)
 
 
-class BillVal(serial.Serial):
+class BillVal:
     """Represent an ID-003 bill validator as a subclass of `serial.Serial`"""
     
-    def __init__(*args, **kwargs):
-        serial.Serial.__init__(*args, **kwargs)
-        
-        self = args[0]
+    def __init__(self, port):
+        self.com = serial.Serial(port, 9600, serial.EIGHTBITS, serial.PARITY_EVEN, timeout=0.05)
         
         self.bv_status = None
         self.bv_version = None
-        if self.timeout is None:
-            self.timeout = 1
             
         self.bv_events = {
             IDLE: self._on_idle,
@@ -451,14 +447,14 @@ class BillVal(serial.Serial):
         message = bytes([SYNC, length, command]) + data
         message += get_crc(message)
         
-        return self.write(message)
+        return self.com.write(message)
         
     def read_response(self):
         """Parse data from the bill validator. Returns a tuple (command, data)"""
         
         start = None
         while start == None:
-            start = self.read(1)
+            start = self.com.read(1)
             if len(start) == 0:
                 # read timed out, return None
                 return None
@@ -467,17 +463,17 @@ class BillVal(serial.Serial):
             elif ord(start) != SYNC and start:
                 raise SyncError("Wrong start byte, got %s" % start)
             
-        total_length = self.read()
+        total_length = self.com.read()
         data_length = ord(total_length) - 5
         
-        command = self.read()
+        command = self.com.read()
         
         if data_length:
-            data = self.read(data_length)
+            data = self.com.read(data_length)
         else:
             data = b''
             
-        crc = self.read(2)
+        crc = self.com.read(2)
         
         # check all our data...
         full_msg = start + total_length + command + data
@@ -571,9 +567,9 @@ class BillVal(serial.Serial):
     def req_status(self):
         """Send status request to bill validator"""
         
-        if self.in_waiting:
+        if self.com.in_waiting:
             # discard any unused data
-            print("WARNING: found unused data in buffer, %r" % self.read(self.in_waiting))
+            print("WARNING: found unused data in buffer, %r" % self.com.read(self.com.in_waiting))
             
         self.send_command(STATUS_REQ)
         
