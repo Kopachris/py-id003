@@ -124,6 +124,8 @@ OPERATION_ERR = 0x7B
 REMAIN_STACK_ERR = 0x7C
 LENGTH_ERR = 0x7D
 PHOTO_PTN2_ERR = 0x7E
+MULTI_ERR = 0x98
+TKT_BACKSIDE_ERR = 0x9B
 
 REJECT_REASONS = {
     INSERTION_ERR: "Insertion error",
@@ -139,6 +141,8 @@ REJECT_REASONS = {
     REMAIN_STACK_ERR: "Remaining bills in stacker error",
     LENGTH_ERR: "Length error",
     PHOTO_PTN2_ERR: "Photo pattern 2 error",
+    MULTI_ERR: "Multiple bills inserted",
+    TKT_BACKSIDE_ERR: "Ticket inserted upside-down",
 }
 
 ## Failure codes ##
@@ -303,6 +307,8 @@ class BillVal:
         
         self.bv_status = None
         self.bv_version = None
+        
+        self.all_statuses = NORM_STATUSES + ERROR_STATUSES + POW_STATUSES
             
         self.bv_events = {
             IDLE: self._on_idle,
@@ -518,8 +524,9 @@ class BillVal:
         
         self.init_status = status
             
-        if status not in (POW_UP, POW_UP_BIA, POW_UP_BIS):
-            raise PowerUpError("Acceptor already powered up")
+        if status not in POW_STATUSES:
+            logging.warning("Acceptor already powered up, status: %02x" % status)
+            return self.init_status
         elif status == POW_UP:
             logging.info("Powering up...")
             logging.info("Getting version...")
@@ -549,7 +556,7 @@ class BillVal:
         # typically call BillVal.poll() after this
         
         return self.init_status
-            
+    
     def initialize(self, denom=[0x82, 0], security=[0, 0], opt_func=[0, 0], 
                    inhibit=[0], bar_func=[0x01, 0x12], bar_inhibit=[0]):
         """Initialize BV settings"""
@@ -606,7 +613,7 @@ class BillVal:
         self.send_command(STATUS_REQ)
         
         stat, data = self.read_response()
-        if stat not in NORM_STATUSES + ERROR_STATUSES + POW_STATUSES + (0x00, None):
+        if stat not in self.all_statuses + (0x00, None):
             logging.warning("Unknown status code received: %02x, data: %r" % stat, data)
         
         return stat, data
