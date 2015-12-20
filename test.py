@@ -8,12 +8,9 @@ import time
 
 
 def main():
-    
-    timeout = 0.05  # 50 ms, per ID-003 specs
-    baud = 9600
     port = 'COM11'  # JCM UAC device (USB serial adapter)
     
-    bv = BillVal(port, baud, serial.EIGHTBITS, serial.PARITY_EVEN, timeout=timeout)
+    bv = BillVal(port)
     print("Please connect bill validator.")
     bv.power_on()
     
