@@ -340,14 +340,14 @@ class BillVal:
                             )
         console = logging.StreamHandler()
         console.setLevel(logging.INFO)
-        formatter = logging.Formatter("%levelname)s: %(message)s")
+        formatter = logging.Formatter("%(levelname)s: %(message)s")
         console.setFormatter(formatter)
         logging.getLogger('').addHandler(console)
     
     def _raw(self, pre, msg):
         if self.raw:
-            log = open('raw.log', 'w')
-            log.write('%s %s\r\n' % pre, msg)
+            log = open('raw.log', 'a')
+            log.write('{} {}\r\n'.format(pre, msg))
             log.close()
     
     def _on_stacker_full(self, data):
@@ -479,7 +479,7 @@ class BillVal:
             start = self.com.read(1)
             if len(start) == 0:
                 # read timed out, return None
-                return None
+                return (None, b'')
             elif start == b'\x00':
                 return (0x00, b'')
             elif ord(start) != SYNC and start:
@@ -525,7 +525,7 @@ class BillVal:
             logging.info("Getting version...")
             self.send_command(GET_VERSION)
             status, self.bv_version = self.read_response()
-            print(self.bv_version)
+            logging.info("BV software version: %s" % self.bv_version.decode())
             
             while status != ACK:
                 logging.debug("Sending reset command")
@@ -606,7 +606,7 @@ class BillVal:
         self.send_command(STATUS_REQ)
         
         stat, data = self.read_response()
-        if stat not in NORM_STATUSES + ERROR_STATUSES + POW_STATUSES:
+        if stat not in NORM_STATUSES + ERROR_STATUSES + POW_STATUSES + (0x00, None):
             logging.warning("Unknown status code received: %02x, data: %r" % stat, data)
         
         return stat, data

@@ -70,6 +70,7 @@ def main():
     
     if choice == 'r':
         import test
+        t.wipe()
         test.main()
     elif choice == 's':
         t.wipe()
