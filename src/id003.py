@@ -164,6 +164,62 @@ FAILURE_CODES = {
 }
 
 
+### Bitfield constants ###
+# TODO move these to separate file?
+# Need some way of separating BV software versions
+
+## Denom inhibit (SET_DENOM) ##
+# Two bytes, only first byte used
+# 0 = enabled, 1 = disabled
+DENOM_USA_1 = 1
+DENOM_USA_RESERVED1 = 2
+DENOM_USA_5 = 4
+DENOM_USA_10 = 8
+DENOM_USA_20 = 16
+DENOM_USA_50 = 32
+DENOM_USA_100 = 64
+DENOM_USA_RESERVED2 = 128
+DENOM_USA_DEFAULT = DENOM_USA_RESERVED1 | DENOM_USA_RESERVED2
+
+## Denom security (SET_SECURITY) ##
+# Two bytes, only first byte used
+# 0 = low security, 1 = high security
+SECURITY_USA_1 = 1
+SECURITY_USA_RESERVED1 = 2
+SECURITY_USA_5 = 4
+SECURITY_USA_10 = 8
+SECURITY_USA_20 = 16
+SECURITY_USA_50 = 32
+SECURITY_USA_100 = 64
+SECURITY_USA_RESERVED2 = 128
+SECURITY_USA_DEFAULT = 0
+
+## Direction inhibit (SET_DIRECTION) ##
+# 0 = enabled, 1 = disabled
+# When facing the obverse of the bill, A is on the left
+DIR_FRONT_A = 1
+DIR_FRONT_B = 2
+DIR_BACK_A = 4
+DIR_BACK_B = 8
+DIR_DEFAULT = 0
+
+## Optional functions (SET_OPT_FUNC) ##
+# 0 = disabled, 1 = enabled
+OPT_POW_RECOV = 2  # power recovery
+OPT_AUTO_RETRY = 4  # auto retry operation
+OPT_24CHAR = 8  # accept 24-character barcodes
+OPT_NEAR_FULL = 32  # nearly full stacker?
+OPT_ENT_SENS = 64  # entrance sensor event
+OPT_ENCRYPT = 128  # encryption
+OPT_DEFAULT = 0
+
+## Barcode functions (SET_BAR_FUNC) ##
+# first byte barcode type (only valid value is 0x01 = interleaved 2 of 5)
+# second byte:
+BAR_18_CHAR = 0x12
+BAR_MULTI = 0xFF  # required if OPT_24CHAR is set?
+
+
 class CRCError(Exception):
     """Computed CRC does not match given CRC"""
     pass
@@ -404,7 +460,8 @@ class BillVal(serial.Serial):
         while start == None:
             start = self.read(1)
             if len(start) == 0:
-                return (None, b'')
+                # read timed out, return None
+                return None
             elif start == b'\x00':
                 return (0x00, b'')
             elif ord(start) != SYNC and start:
@@ -516,29 +573,29 @@ class BillVal(serial.Serial):
         
         if self.in_waiting:
             # discard any unused data
-            self.reset_input_buffer()
+            print("WARNING: found unused data in buffer, %r" % self.read(self.in_waiting))
             
         self.send_command(STATUS_REQ)
         
         stat, data = self.read_response()
-        #if (stat, data) != self.bv_status and self.bv_status is not None:
-            #print((hex(stat), data))
-
-        #self.bv_status = (stat, data)
+        if stat not in NORM_STATUSES + ERROR_STATUSES + POW_STATUSES:
+            print("Unknown status code received: %02x, data: %s" % stat, data)
+        
         return stat, data
         
     def poll(self, interval=0.2):
         """Send a status request to the bill validator every `interval` seconds
         and fire event handlers. `interval` defaults to 200 ms, per ID-003 spec.
         
-        Event handlers are only fired upon status changes.
+        Event handlers are only fired upon status changes. Event handlers can
+        set `self.bv_status` to None to force event handler to fire on the next
+        status request.
         """
         
         while True:
             poll_start = time.time()
             status, data = self.req_status()
             if (status, data) != self.bv_status:
-                #print((hex(status), data))
                 if status in self.bv_events:
                     self.bv_events[status](data)
             self.bv_status = (status, data)

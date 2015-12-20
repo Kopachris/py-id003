@@ -9,7 +9,7 @@ import time
 
 def main():
     
-    timeout = 0.2
+    timeout = 0.05  # 50 ms, per ID-003 specs
     baud = 9600
     port = 'COM11'  # JCM UAC device (USB serial adapter)
     
