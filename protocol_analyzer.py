@@ -12,29 +12,68 @@ import termutils as t
 
 import time
 import logging
-import msvcrt
+import configparser
+import threading
 
 import serial.tools.list_ports
 
 from collections import OrderedDict
 
 X_SIZE, Y_SIZE = t.get_size()
-COMPORT = 'COM3'
+
+CONFIG_FILE = 'bv.ini'
+CONFIG = configparser.ConfigParser()
+CONFIG.read(CONFIG_FILE)
 
 
-def poll_loop(bv, interval):
+def kb_loop(bv, stdout_lock, bv_lock):
+    global CONFIG
+
+    print("Press Q at any time to quit, or H for help")
+    while True:
+        opt = t.get_key().lower()
+        if opt == b'q':
+            bv.bv_on = False
+            with open(CONFIG_FILE, 'w') as f:
+                CONFIG.write(f)
+            return
+        elif opt == b'h':
+            print("Q - Quit\n" "H - Help\n" "S - Settings menu\n"
+                  "R - Reset and initialize bill validator\n"
+                  "P - Pause bill validator\n" "M - Stop polling "
+                  "and return to main menu")
+        elif opt == b'm':
+            return
+        elif opt == b's':
+            print("Not implemented yet")
+        elif opt == b'r':
+            print("Not implemented yet")
+        elif opt == b'p':
+            print("Not implemented yet")
+
+
+def poll_loop(bv, stdout_lock, bv_lock, interval=0.2):
+    print("Please connect bill validator.")
+    bv.power_on()
+    
+    if bv.init_status == id003.POW_UP:
+        logging.info("BV powered up normally.")
+    elif bv.init_status == id003.POW_UP_BIA:
+        logging.info("BV powered up with bill in acceptor.")
+    elif bv.init_status == id003.POW_UP_BIS:
+        logging.info("BV powered up with bill in stacker.")
+
     while True:
         poll_start = time.time()
-        status, data = bv.req_status()
-        if (status, data) != bv.bv_status:
-            if status in bv.bv_events:
-                bv.bv_events[status](data)
+        if not bv.bv_on:
+            return
+        with bv_lock:
+            status, data = bv.req_status()
+            if (status, data) != bv.bv_status and status in bv.bv_events:
+                with stdout_lock:
+                    bv.bv_events[status](data)
         bv.bv_status = (status, data)
         wait = interval - (time.time() - poll_start)
-        if msvcrt.kbhit():
-            k = msvcrt.getch()
-            if k == 'q':
-                sys.exit()
         if wait > 0.0:
             time.sleep(wait)
             
@@ -71,7 +110,10 @@ def display_menu(menu, prompt='>>>', header='', info=''):
 
 
 def main():
-    global COMPORT
+    global CONFIG
+    
+    comport = CONFIG['main']['comport']
+    poll_interval = float(CONFIG['main']['poll_interval'])
 
     main_menu = OrderedDict()
     main_menu['r'] = "Run"
@@ -79,24 +121,35 @@ def main():
     main_menu['c'] = "Select COM port"
     main_menu['q'] = "Quit"
     
-    choice = display_menu(main_menu, '>>>', "ID-003 protocol analyzer", "Using COM port %s" % COMPORT).lower()
+    choice = display_menu(main_menu, '>>>', "ID-003 protocol analyzer", "Using COM port %s" % comport).lower()
     
     if choice == 'r':
         t.wipe()
-        bv = id003.BillVal(COMPORT)
-        print("Please connect bill validator.")
-        bv.power_on()
+        bv = id003.BillVal(comport)
         
-        if bv.init_status == id003.POW_UP:
-            logging.info("BV powered up normally.")
-        elif bv.init_status == id003.POW_UP_BIA:
-            logging.info("BV powered up with bill in acceptor.")
-        elif bv.init_status == id003.POW_UP_BIS:
-            logging.info("BV powered up with bill in stacker.")
-            
-        print("Press Q at any time to quit")
-        poll_loop(bv, 0.2)
-        return
+        stdout_lock = threading.Lock()
+        bv_lock = threading.Lock()
+        
+        poll_args = (bv, stdout_lock, bv_lock, poll_interval)
+        poll_thread = threading.Thread(target=poll_loop, args=poll_args)
+        
+        kb_args = (bv, stdout_lock, bv_lock)
+        kb_thread = threading.Thread(target=kb_loop, args=kb_args)
+        
+        poll_thread.start()
+        kb_thread.start()
+        kb_thread.join()
+        
+        if not bv.bv_on:
+            # kb_thred quit, not main menu
+            bv.com.close()
+            return True
+        else:
+            # terminate poll thread
+            bv.bv_on = False
+            poll_thread.join()
+            bv.com.close()
+            return
     elif choice == 's':
         t.wipe()
         print("Settings not available yet")
@@ -114,12 +167,15 @@ def main():
             return
         else:
             port = int(port) - 1
-            COMPORT = ports[port].device
+            CONFIG['main']['comport'] = ports[port].device
         return
     elif choice == 'q':
-        sys.exit()
+        return True
 	
 	
 if __name__ == '__main__':
-    while 1:
-        main()
+    while not main():
+        continue
+    with open(CONFIG_FILE, 'w') as f:
+        # save configuration on program exit
+        CONFIG.write(f)
