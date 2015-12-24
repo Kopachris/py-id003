@@ -326,11 +326,13 @@ def get_crc(message):
 class BillVal:
     """Represent an ID-003 bill validator as a subclass of `serial.Serial`"""
     
-    def __init__(self, port, log_raw=False):
+    def __init__(self, port, log_raw=False, threading=False):
         self.com = serial.Serial(port, 9600, serial.EIGHTBITS, serial.PARITY_EVEN, timeout=0.05)
         
         self.bv_status = None
         self.bv_version = None
+        
+        self.threading = threading
         
         self.all_statuses = NORM_STATUSES + ERROR_STATUSES + POW_STATUSES
             
@@ -365,16 +367,17 @@ class BillVal:
         # set up logging
         self.raw = log_raw
         
-        logging.basicConfig(level=logging.DEBUG,
-                            format="[%(asctime)s] %(levelname)s: %(message)s",
-                            filename='debug.log',
-                            filemode='w',
-                            )
-        console = logging.StreamHandler()
-        console.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(levelname)s: %(message)s")
-        console.setFormatter(formatter)
-        logging.getLogger('').addHandler(console)
+        if not logging.getLogger('').hasHandlers():
+            logging.basicConfig(level=logging.DEBUG,
+                                format="[%(asctime)s] %(levelname)s: %(message)s",
+                                filename='debug.log',
+                                filemode='w',
+                                )
+            console = logging.StreamHandler()
+            console.setLevel(logging.INFO)
+            formatter = logging.Formatter("%(levelname)s: %(message)s")
+            console.setFormatter(formatter)
+            logging.getLogger('').addHandler(console)
     
     def _raw(self, pre, msg):
         if self.raw:
