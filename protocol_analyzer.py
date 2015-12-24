@@ -16,6 +16,7 @@ import configparser
 import threading
 
 import serial.tools.list_ports
+from serial.serialutil import SerialException
 
 from collections import OrderedDict
 
@@ -31,7 +32,10 @@ def kb_loop(bv, stdout_lock, bv_lock):
 
     print("Press Q at any time to quit, or H for help")
     while True:
-        opt = t.get_key().lower()
+        with stdout_lock:
+            opt = t.get_key(0.1)
+        if opt is not None:
+            opt = opt.lower()
         if opt == b'q':
             bv.bv_on = False
             with open(CONFIG_FILE, 'w') as f:
@@ -125,7 +129,17 @@ def main():
     
     if choice == 'r':
         t.wipe()
-        bv = id003.BillVal(comport)
+        try:
+            bv = id003.BillVal(comport, threading=True)
+        except SerialException:
+            print("Unable to open serial port")
+            q = 'x'
+            while q not in 'qm':
+                q = input("(Q)uit or (M)ain menu? ").lower()
+                if q == 'q':
+                    return True
+                elif q == 'm':
+                    return
         
         stdout_lock = threading.Lock()
         bv_lock = threading.Lock()
@@ -137,11 +151,14 @@ def main():
         kb_thread = threading.Thread(target=kb_loop, args=kb_args)
         
         poll_thread.start()
+        while bv.bv_status != (id003.IDLE, b''):
+            # wait for power-up before starting keyboard loop
+            continue
         kb_thread.start()
         kb_thread.join()
         
         if not bv.bv_on:
-            # kb_thred quit, not main menu
+            # kb_thread quit, not main menu
             bv.com.close()
             return True
         else:
@@ -149,6 +166,9 @@ def main():
             bv.bv_on = False
             poll_thread.join()
             bv.com.close()
+            del poll_thread
+            del kb_thread
+            del bv
             return
     elif choice == 's':
         t.wipe()

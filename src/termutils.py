@@ -27,6 +27,7 @@ import os
 import sys
 import struct
 import colorama as c
+import time
 
 
 c.init()
@@ -267,7 +268,39 @@ class _GetchWindows:
         return msvcrt.getch()
 
 
-get_key = _Getch()
+getch = _Getch()
+
+def get_key(timeout=0.0):
+    """Non-blocking version of getch"""
+    
+    if timeout < 0:
+        # Revert to blocking version
+        return getch()
+        
+    char = None
+    if os.name == 'nt':
+        import msvcrt
+        start = time.time()
+        while True:
+            if msvcrt.kbhit():
+                char = msvcrt.getch()
+                if char in b'\x00\xe0':
+                    # special key, two bytes
+                    char += msvcrt.getch()
+                break
+            if time.time() > (start + timeout):
+                break
+            else:
+                # poll at most every 50 ms
+                time.sleep(0.05)
+    
+    elif os.name == 'posix':
+        from select import select
+        rlist, wlist, xlist = select([sys.stdin], [], [], timeout)
+        if sys.stdin in rlist:
+            char = sys.stdin.read()
+    
+    return char
 
 
 ## Foreground color ##
