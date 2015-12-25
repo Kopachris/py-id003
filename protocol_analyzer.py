@@ -80,17 +80,21 @@ def poll_loop(bv, stdout_lock, bv_lock, interval=0.2):
         wait = interval - (time.time() - poll_start)
         if wait > 0.0:
             time.sleep(wait)
-            
-            
+
+
+def display_header(text):
+    t.set_pos(0, 0)
+    print(text.center(X_SIZE), end='')
+    print('=' * X_SIZE, end='')
+
+
 def display_menu(menu, prompt='>>>', header='', info=''):
     if len(menu) > Y_SIZE - 5:
         raise ValueError("Too many menu options")
     
     # print the header
     t.wipe()
-    t.set_pos(0, 0)
-    print(header.center(X_SIZE), end='')
-    print('=' * X_SIZE, end='')
+    display_header(header)
     
     # print the menu items
     for k, v in menu.items():
@@ -113,6 +117,110 @@ def display_menu(menu, prompt='>>>', header='', info=''):
     return k
 
 
+def settings():
+    global CONFIG
+    
+    t.wipe()
+    
+    settings_menu = OrderedDict()
+    settings_menu['e'] = "Denomination enable/inhibit"
+    settings_menu['s'] = "Denomination security"
+    settings_menu['d'] = "Direction enable/inhibit"
+    settings_menu['o'] = "Optional functions"
+    settings_menu['b'] = "Bar code ticket options"
+    settings_menu['q'] = "Main menu"
+    
+    choice = display_menu(settings_menu, '>>>', "Settings",
+                          "Changes will take effect next time bill validator is powered on")
+    
+    if choice == 'e':
+        denom_settings()
+    
+    return
+
+
+def denom_settings():
+    global CONFIG
+    
+    t.wipe()
+    display_header("Denomination enable/inhibit settings")
+    
+    opts = dict()
+    set_opts = OrderedDict()
+    for i, k in enumerate(CONFIG['bv.denom_inhibit'].keys()):
+        if id003.DENOM_MAP[k] in id003.ESCROW_USA:
+            denom = id003.ESCROW_USA[id003.DENOM_MAP[k]]
+        else:
+            denom = None
+            
+        denom_enabled = CONFIG['bv.denom_inhibit'].getboolean(k)
+        opts[i] = k
+        set_opts[k] = denom_enabled
+        
+        if denom is not None:
+            line = k + ' (' + denom + '):\t\t'
+        else:
+            line = k + ':\t\t\t'
+        
+        if denom_enabled:
+            line += 'X'
+        else:
+            line += '_'
+            
+        print(line)
+    
+    print("\n\nPress Enter to save and go back, or Esc to go back without saving")
+    t.set_pos(25, 3)
+    
+    max_opt = len(CONFIG['bv.denom_inhibit']) - 1
+    cur_opt = 0
+    while True:
+        x, y = t.get_pos()
+        c = t.getch()
+        
+        if c == b'\xe0H' and cur_opt > 0:
+            # up
+            t.set_pos(x, y-1)
+            cur_opt -= 1
+        elif c == b'\xe0P' and cur_opt < max_opt:
+            # down
+            t.set_pos(x, y+1)
+            cur_opt += 1
+        elif c == b'\t' and cur_opt == max_opt:
+            # wrap around to first option
+            t.set_pos(x, 3)
+            cur_opt = 0
+        elif c == b'\t':
+            # next option, same as down
+            t.set_pos(x, y+1)
+            cur_opt += 1
+        elif c == b'X' or c == b'x':
+            set_opts[opts[cur_opt]] = True
+            print('X', end='')
+            if cur_opt < max_opt:
+                t.set_pos(x, y+1)
+                cur_opt += 1
+            else:
+                t.set_pos(x, y)
+        elif c == b' ':
+            set_opts[opts[cur_opt]] = False
+            print('_', end='')
+            if cur_opt < max_opt:
+                t.set_pos(x, y+1)
+                cur_opt += 1
+            else:
+                t.set_pos(x, y)
+        elif c == b'\r':
+            # save and go back
+            CONFIG['bv.denom_inhibit'] = set_opts
+            return
+        elif c == b'\x1b':
+            # escape, go back without saving
+            return
+    
+    #input()
+    
+    
 def main():
     global CONFIG
     
@@ -125,7 +233,7 @@ def main():
     main_menu['c'] = "Select COM port"
     main_menu['q'] = "Quit"
     
-    choice = display_menu(main_menu, '>>>', "ID-003 protocol analyzer", "Using COM port %s" % comport).lower()
+    choice = display_menu(main_menu, '>>>', "ID-003 protocol analyzer", "Using COM port %s" % comport)
     
     if choice == 'r':
         t.wipe()
@@ -171,9 +279,7 @@ def main():
             del bv
             return
     elif choice == 's':
-        t.wipe()
-        print("Settings not available yet")
-        input("Press enter to continue.")
+        settings()
         return
     elif choice == 'c':
         t.wipe()

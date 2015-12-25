@@ -265,7 +265,10 @@ class _GetchWindows:
 
     def __call__(self):
         import msvcrt
-        return msvcrt.getch()
+        c = msvcrt.getch()
+        if c in b'\x00\xe0':
+            c += msvcrt.getch()
+        return c
 
 
 getch = _Getch()

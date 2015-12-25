@@ -195,6 +195,16 @@ DENOMS = {
     'denom7': 64,
     'denom8': 128,
 }
+DENOM_MAP = {
+    'denom1': 0x61,
+    'denom2': 0x62,
+    'denom3': 0x63,
+    'denom4': 0x64,
+    'denom5': 0x65,
+    'denom6': 0x66,
+    'denom7': 0x67,
+    'denom8': 0x68,
+}
 
 ## Denom security (SET_SECURITY) ##
 # Two bytes, only first byte used
