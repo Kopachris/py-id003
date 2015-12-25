@@ -57,8 +57,14 @@ def kb_loop(bv, stdout_lock, bv_lock):
 
 
 def poll_loop(bv, stdout_lock, bv_lock, interval=0.2):
+    # get denom inhibit options
+    denom = 0
+    for k in CONFIG['bv.denom_inhibit']:
+        if CONFIG['bv.denom_inhibit'].getboolean(k):
+            denom |= id003.DENOMS[k]
+    
     print("Please connect bill validator.")
-    bv.power_on()
+    bv.power_on([denom, 0])
     
     if bv.init_status == id003.POW_UP:
         logging.info("BV powered up normally.")
@@ -154,8 +160,8 @@ def denom_settings():
             denom = None
             
         denom_enabled = CONFIG['bv.denom_inhibit'].getboolean(k)
-        opts[i] = k
-        set_opts[k] = denom_enabled
+        opts[i] = k     # index into this config section
+        set_opts[k] = denom_enabled     # cache settings before writing to config
         
         if denom is not None:
             line = k + ' (' + denom + '):\t\t'
@@ -169,7 +175,9 @@ def denom_settings():
             
         print(line)
     
-    print("\n\nPress Enter to save and go back, or Esc to go back without saving")
+    print("\n\nIf a denom is inhibited through these settings that's not inhibited by the\n"
+          "appropriate DIP switch on the BV, the BV will go into INHIBIT status.")
+    print("\nPress Enter to save and go back, or Esc to go back without saving")
     t.set_pos(25, 3)
     
     max_opt = len(CONFIG['bv.denom_inhibit']) - 1
@@ -217,8 +225,6 @@ def denom_settings():
         elif c == b'\x1b':
             # escape, go back without saving
             return
-    
-    #input()
     
     
 def main():

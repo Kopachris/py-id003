@@ -552,7 +552,7 @@ class BillVal:
             
         return ord(command), data
         
-    def power_on(self):
+    def power_on(self, *args, **kwargs):
         """Handle startup routines"""
         
         self.bv_on = True
@@ -583,7 +583,7 @@ class BillVal:
                 status, data = self.read_response()
                 
             if self.req_status()[0] == INITIALIZE:
-                self.initialize()
+                self.initialize(*args, **kwargs)
         else:
             # Acceptor should either reject or stack bill
             while status != ACK:
@@ -591,7 +591,7 @@ class BillVal:
                 status, data = self.read_response()
                 
             if self.req_status()[0] == INITIALIZE:
-                self.initialize()
+                self.initialize(*args, **kwargs)
 
         while self.req_status()[0] == INITIALIZE:
             time.sleep(0.2)
@@ -609,42 +609,42 @@ class BillVal:
         self.send_command(SET_DENOM, denom)
         status, data = self.read_response()
         if (status, data) != (SET_DENOM, denom):
-            raise AckError("Acceptor did not echo denom settings")
+            logging.warning("Acceptor did not echo denom settings")
         
         logging.debug("Setting security: %r" % security)
         security = bytes(security)
         self.send_command(SET_SECURITY, security)
         status, data = self.read_response()
         if (status, data) != (SET_SECURITY, security):
-            raise AckError("Acceptor did not echo security settings")
+            logging.warning("Acceptor did not echo security settings")
             
         logging.debug("Setting optional functions: %r" % opt_func)
         opt_func = bytes(opt_func)
         self.send_command(SET_OPT_FUNC, opt_func)
         status, data = self.read_response()
         if (status, data) != (SET_OPT_FUNC, opt_func):
-            raise AckError("Acceptor did not echo option function settings")
+            logging.warning("Acceptor did not echo option function settings")
             
         logging.debug("Setting inhibit: %r" % inhibit)
         inhibit = bytes(inhibit)
         self.send_command(SET_INHIBIT, inhibit)
         status, data = self.read_response()
         if (status, data) != (SET_INHIBIT, inhibit):
-            raise AckError("Acceptor did not echo inhibit settings")
+            logging.warning("Acceptor did not echo inhibit settings")
         
         logging.debug("Setting barcode functions: %r" % bar_func)
         bar_func = bytes(bar_func)
         self.send_command(SET_BAR_FUNC, bar_func)
         status, data = self.read_response()
         if (status, data) != (SET_BAR_FUNC, bar_func):
-            raise AckError("Acceptor did not echo barcode settings")
+            logging.warning("Acceptor did not echo barcode settings")
 
         logging.debug("Setting barcode inhibit: %r" % bar_inhibit)
         bar_inhibit = bytes(bar_inhibit)
         self.send_command(SET_BAR_INHIBIT, bar_inhibit)
         status, data = self.read_response()
         if (status, data) != (SET_BAR_INHIBIT, bar_inhibit):
-            raise AckError("Acceptor did not echo barcode inhibit settings")
+            logging.warning("Acceptor did not echo barcode inhibit settings")
     
     def req_status(self):
         """Send status request to bill validator"""
