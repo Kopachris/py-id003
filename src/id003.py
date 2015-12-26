@@ -600,7 +600,7 @@ class BillVal:
         
         return self.init_status
     
-    def initialize(self, denom=[0x82, 0], security=[0, 0], opt_func=[0, 0], 
+    def initialize(self, denom=[0x82, 0], sec=[0, 0], dir=[0], opt_func=[0, 0], 
                    inhibit=[0], bar_func=[0x01, 0x12], bar_inhibit=[0]):
         """Initialize BV settings"""
         
@@ -611,13 +611,20 @@ class BillVal:
         if (status, data) != (SET_DENOM, denom):
             logging.warning("Acceptor did not echo denom settings")
         
-        logging.debug("Setting security: %r" % security)
-        security = bytes(security)
-        self.send_command(SET_SECURITY, security)
+        logging.debug("Setting security: %r" % sec)
+        sec = bytes(sec)
+        self.send_command(SET_SECURITY, sec)
         status, data = self.read_response()
-        if (status, data) != (SET_SECURITY, security):
+        if (status, data) != (SET_SECURITY, sec):
             logging.warning("Acceptor did not echo security settings")
             
+        logging.debug("Setting direction inhibit: %r" % dir)
+        dir = bytes(dir)
+        self.send_command(SET_DIRECTION, dir)
+        status, data = self.read_response()
+        if (status, data) != (SET_DIRECTION, dir):
+            logging.warning("Acceptor did not echo direction settings")
+        
         logging.debug("Setting optional functions: %r" % opt_func)
         opt_func = bytes(opt_func)
         self.send_command(SET_OPT_FUNC, opt_func)

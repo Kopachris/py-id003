@@ -62,9 +62,21 @@ def poll_loop(bv, stdout_lock, bv_lock, interval=0.2):
     for k in CONFIG['bv.denom_inhibit']:
         if CONFIG['bv.denom_inhibit'].getboolean(k):
             denom |= id003.DENOMS[k]
+            
+    # get security options
+    sec = 0
+    for k in CONFIG['bv.security']:
+        if CONFIG['bv.security'].getboolean(k):
+            sec |= id003.DENOMS[k]
+            
+    # get direction options
+    dir = 0
+    for k in CONFIG['bv.direction']:
+        if CONFIG['bv.direction'].getboolean(k):
+            dir |= id003.DIRECTIONS[k]
     
     print("Please connect bill validator.")
-    bv.power_on([denom, 0])
+    bv.power_on([denom, 0], [sec, 0], [dir])
     
     if bv.init_status == id003.POW_UP:
         logging.info("BV powered up normally.")
@@ -143,10 +155,91 @@ def settings():
         denom_settings()
     elif choice == 's':
         security_settings()
+    elif choice == 'd':
+        direction_settings()
     
     return
 
 
+def direction_settings():
+    global CONFIG
+    
+    t.wipe()
+    display_header("Direction ihibit settings")
+    
+    opts = dict()
+    set_opts = OrderedDict()
+    for i, k in enumerate(CONFIG['bv.direction'].keys()):
+        dir_enabled = CONFIG['bv.direction'].getboolean(k)
+        opts[i] = k
+        set_opts[k] = dir_enabled
+        
+        if k == 'fa':
+            print("Front side up, left side in:\t\t", end='')
+        elif k == 'fb':
+            print("Front side up, right side in:\t\t", end='')
+        elif k == 'bb':
+            print("Back side up, left side in:\t\t", end='')
+        elif k == 'ba':
+            print("Back side up, right side in:\t\t", end='')
+            
+        start_x, start_y = t.get_pos()
+        if dir_enabled:
+            print('X')
+        else:
+            print('_')
+            
+    print("\n\n_ = enabled, X = inhibited")
+    print("\nPress Enter to save and go back, or Esc to go back without saving")
+    t.set_pos(start_x, 3)
+    
+    max_opt = len(CONFIG['bv.direction']) - 1
+    cur_opt = 0
+    while True:
+        x, y = t.get_pos()
+        c = t.getch()
+        
+        if c == b'\xe0H' and cur_opt > 0:
+            # up
+            t.set_pos(x, y-1)
+            cur_opt -= 1
+        elif c == b'\xe0P' and cur_opt < max_opt:
+            # down
+            t.set_pos(x, y+1)
+            cur_opt += 1
+        elif c == b'\t' and cur_opt == max_opt:
+            # wrap around to first option
+            t.set_pos(x, 3)
+            cur_opt = 0
+        elif c == b'\t':
+            # next option, same as down
+            t.set_pos(x, y+1)
+            cur_opt += 1
+        elif c == b'X' or c == b'x':
+            set_opts[opts[cur_opt]] = True
+            print('X', end='')
+            if cur_opt < max_opt:
+                t.set_pos(x, y+1)
+                cur_opt += 1
+            else:
+                t.set_pos(x, y)
+        elif c == b' ':
+            set_opts[opts[cur_opt]] = False
+            print('_', end='')
+            if cur_opt < max_opt:
+                t.set_pos(x, y+1)
+                cur_opt += 1
+            else:
+                t.set_pos(x, y)
+        elif c == b'\r':
+            # save and go back
+            CONFIG['bv.direction'] = set_opts
+            return
+        elif c == b'\x1b':
+            # escape, go back without saving
+            return
+
+    
 def security_settings():
     global CONFIG
     
