@@ -141,10 +141,94 @@ def settings():
     
     if choice == 'e':
         denom_settings()
+    elif choice == 's':
+        security_settings()
     
     return
 
 
+def security_settings():
+    global CONFIG
+    
+    t.wipe()
+    display_header("Denomination security settings")
+    
+    opts = dict()
+    set_opts = OrderedDict()
+    for i, k in enumerate(CONFIG['bv.security'].keys()):
+        if id003.DENOM_MAP[k] in id003.ESCROW_USA:
+            denom = id003.ESCROW_USA[id003.DENOM_MAP[k]]
+        else:
+            denom = None
+            
+        denom_enabled = CONFIG['bv.security'].getboolean(k)
+        opts[i] = k
+        set_opts[k] = denom_enabled
+        
+        if denom is not None:
+            line = k + ' (' + denom + '):\t\t'
+        else:
+            line = k + ':\t\t\t'
+        
+        if denom_enabled:
+            line += 'X'
+        else:
+            line += '_'
+            
+        print(line)
+    
+    print("\n\nX = high security, _ = low security")
+    print("\nPress Enter to save and go back, or Esc to go back without saving")
+    t.set_pos(25, 3)
+    
+    max_opt = len(CONFIG['bv.security']) - 1
+    cur_opt = 0
+    while True:
+        x, y = t.get_pos()
+        c = t.getch()
+        
+        if c == b'\xe0H' and cur_opt > 0:
+            # up
+            t.set_pos(x, y-1)
+            cur_opt -= 1
+        elif c == b'\xe0P' and cur_opt < max_opt:
+            # down
+            t.set_pos(x, y+1)
+            cur_opt += 1
+        elif c == b'\t' and cur_opt == max_opt:
+            # wrap around to first option
+            t.set_pos(x, 3)
+            cur_opt = 0
+        elif c == b'\t':
+            # next option, same as down
+            t.set_pos(x, y+1)
+            cur_opt += 1
+        elif c == b'X' or c == b'x':
+            set_opts[opts[cur_opt]] = True
+            print('X', end='')
+            if cur_opt < max_opt:
+                t.set_pos(x, y+1)
+                cur_opt += 1
+            else:
+                t.set_pos(x, y)
+        elif c == b' ':
+            set_opts[opts[cur_opt]] = False
+            print('_', end='')
+            if cur_opt < max_opt:
+                t.set_pos(x, y+1)
+                cur_opt += 1
+            else:
+                t.set_pos(x, y)
+        elif c == b'\r':
+            # save and go back
+            CONFIG['bv.security'] = set_opts
+            return
+        elif c == b'\x1b':
+            # escape, go back without saving
+            return
+            
+    
+    
 def denom_settings():
     global CONFIG
     
