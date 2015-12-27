@@ -74,9 +74,15 @@ def poll_loop(bv, stdout_lock, bv_lock, interval=0.2):
     for k in CONFIG['bv.direction']:
         if CONFIG['bv.direction'].getboolean(k):
             dir |= id003.DIRECTIONS[k]
+            
+    # get optional functions
+    opt = 0
+    for k in CONFIG['bv.optional']:
+        if CONFIG['bv.optional'].getboolean(k):
+            opt |= id003.OPTIONS[k]
     
     print("Please connect bill validator.")
-    bv.power_on([denom, 0], [sec, 0], [dir])
+    bv.power_on([denom, 0], [sec, 0], [dir], [opt, 0])
     
     if bv.init_status == id003.POW_UP:
         logging.info("BV powered up normally.")
@@ -133,8 +139,8 @@ def display_menu(menu, prompt='>>>', header='', info=''):
         t.set_pos(x, y)
     
     return k
-
-
+    
+    
 def settings():
     global CONFIG
     
@@ -157,10 +163,92 @@ def settings():
         security_settings()
     elif choice == 'd':
         direction_settings()
+    elif choice == 'o':
+        opt_settings()
     
     return
 
 
+def opt_settings():
+    global CONFIG
+    
+    t.wipe()
+    display_header("Optional function settings")
+    
+    opts = dict()
+    set_opts = OrderedDict()
+    opt_txt = {
+        'power_recovery': "Power recovery:\t\t\t\t",
+        'auto_retry': "Auto-retry operaton:\t\t\t",
+        '24_char_barcode': "Accept 24-character barcodes:\t\t",
+        'near_full': "Stacker nearly full event:\t\t",
+        'entrance_event': "Entrance sensor event:\t\t\t",
+        'encryption': "Encryption:\t\t\t\t",
+    }
+    
+    for i, k in enumerate(CONFIG['bv.optional'].keys()):
+        opt_enabled = CONFIG['bv.optional'].getboolean(k)
+        opts[i] = k
+        set_opts[k] = opt_enabled
+        
+        print(opt_txt[k], end='')
+        start_x, start_y = t.get_pos()
+        if opt_enabled:
+            print('X')
+        else:
+            print('_')
+            
+    print("\n\n_ = disabled, X = enabled")
+    print("\nPress Enter to save and go back, or Esc to go back without saving")
+    t.set_pos(start_x, 3)
+    
+    max_opt = len(CONFIG['bv.optional']) - 1
+    cur_opt = 0
+    while True:
+        x, y = t.get_pos()
+        c = t.getch()
+        
+        if c == b'\xe0H' and cur_opt > 0:
+            # up
+            t.set_pos(x, y-1)
+            cur_opt -= 1
+        elif c == b'\xe0P' and cur_opt < max_opt:
+            # down
+            t.set_pos(x, y+1)
+            cur_opt += 1
+        elif c == b'\t' and cur_opt == max_opt:
+            # wrap around to first option
+            t.set_pos(x, 3)
+            cur_opt = 0
+        elif c == b'\t':
+            # next option, same as down
+            t.set_pos(x, y+1)
+            cur_opt += 1
+        elif c == b'X' or c == b'x':
+            set_opts[opts[cur_opt]] = True
+            print('X', end='')
+            if cur_opt < max_opt:
+                t.set_pos(x, y+1)
+                cur_opt += 1
+            else:
+                t.set_pos(x, y)
+        elif c == b' ':
+            set_opts[opts[cur_opt]] = False
+            print('_', end='')
+            if cur_opt < max_opt:
+                t.set_pos(x, y+1)
+                cur_opt += 1
+            else:
+                t.set_pos(x, y)
+        elif c == b'\r':
+            # save and go back
+            CONFIG['bv.optional'] = set_opts
+            return
+        elif c == b'\x1b':
+            # escape, go back without saving
+            return
+    
+    
 def direction_settings():
     global CONFIG
     
