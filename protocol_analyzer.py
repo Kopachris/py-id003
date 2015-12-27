@@ -105,8 +105,6 @@ def kb_loop(bv, stdout_lock, bv_lock):
                     logging.info("Initializing bill validator")
                     bv.initialize(denom, sec, dir, opt)
                     
-                while bv.req_status()[0] != id003.IDLE:
-                    time.sleep(0.2)
                 bv.bv_status = None
         elif opt == b'p':
             print("Not implemented yet")
@@ -550,8 +548,9 @@ def main():
     
     if choice == 'r':
         t.wipe()
+        raw = CONFIG['main'].getboolean('debug')
         try:
-            bv = id003.BillVal(comport, threading=True)
+            bv = id003.BillVal(comport, log_raw=raw, threading=True)
         except SerialException:
             print("Unable to open serial port")
             q = 'x'

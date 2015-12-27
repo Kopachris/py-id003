@@ -391,6 +391,7 @@ class BillVal:
     
     def _raw(self, pre, msg):
         if self.raw:
+            msg = ['0x%02x' % x for x in msg]
             log = open('raw.log', 'a')
             log.write('{} {}\r\n'.format(pre, msg))
             log.close()
@@ -422,6 +423,7 @@ class BillVal:
     
     def _on_comm_error(self, data):
         logging.warning("Communication error.")
+        logging.debug("Details: %r" % ['0x%02x' % x for x in data])
     
     def _on_invalid_command(self, data):
         logging.warning("Invalid command.")
@@ -493,9 +495,13 @@ class BillVal:
         input("Press enter to reset and initialize BV.")
         status = None
         while status != ACK:
+            logging.debug("Sending reset command")
             self.send_command(RESET, b'')
             status, data = self.read_response()
+            time.sleep(0.2)
+        logging.debug("Received ACK")
         if self.req_status()[0] == INITIALIZE:
+            logging.info("Initializing bill validator...")
             self.initialize()
         self.bv_status = None
     
@@ -592,9 +598,6 @@ class BillVal:
                 
             if self.req_status()[0] == INITIALIZE:
                 self.initialize(*args, **kwargs)
-
-        while self.req_status()[0] == INITIALIZE:
-            time.sleep(0.2)
                     
         # typically call BillVal.poll() after this
         
@@ -652,6 +655,10 @@ class BillVal:
         status, data = self.read_response()
         if (status, data) != (SET_BAR_INHIBIT, bar_inhibit):
             logging.warning("Acceptor did not echo barcode inhibit settings")
+            
+        while self.req_status()[0] == INITIALIZE:
+            # wait for initialization to finish
+            time.sleep(0.2)
     
     def req_status(self):
         """Send status request to bill validator"""
