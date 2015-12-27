@@ -27,6 +27,38 @@ CONFIG = configparser.ConfigParser()
 CONFIG.read(CONFIG_FILE)
 
 
+def get_denoms():
+    denom = 0
+    for k in CONFIG['bv.denom_inhibit']:
+        if CONFIG['bv.denom_inhibit'].getboolean(k):
+            denom |= id003.DENOMS[k]
+    return [denom, 0]
+    
+    
+def get_security():
+    sec = 0
+    for k in CONFIG['bv.security']:
+        if CONFIG['bv.security'].getboolean(k):
+            sec |= id003.DENOMS[k]
+    return [sec, 0]
+    
+
+def get_directions():
+    dir = 0
+    for k in CONFIG['bv.direction']:
+        if CONFIG['bv.direction'].getboolean(k):
+            dir |= id003.DIRECTIONS[k]
+    return [dir]
+    
+    
+def get_optional():
+    opt = 0
+    for k in CONFIG['bv.optional']:
+        if CONFIG['bv.optional'].getboolean(k):
+            opt |= id003.OPTIONS[k]
+    return [opt, 0]
+
+
 def kb_loop(bv, stdout_lock, bv_lock):
     global CONFIG
 
@@ -49,40 +81,45 @@ def kb_loop(bv, stdout_lock, bv_lock):
         elif opt == b'm':
             return
         elif opt == b's':
-            print("Not implemented yet")
+            with stdout_lock:
+                logging.debug("Entered settings menu from status poll")
+                settings()
+                logging.debug("Exited settings menu")
+                bv.bv_status = None  # print current status after returning
+                t.wipe()
         elif opt == b'r':
-            print("Not implemented yet")
+            with bv_lock:
+                logging.debug("Sending reset command")
+                status = None
+                while status != id003.ACK:
+                    bv.send_command(id003.RESET)
+                    status, data = bv.read_response()
+                    time.sleep(0.2)
+                logging.debug("Received ACK")
+                
+                if bv.req_status()[0] == id003.INITIALIZE:
+                    denom = get_denoms()
+                    sec = get_security()
+                    dir = get_directions()
+                    opt = get_optional()
+                    logging.info("Initializing bill validator")
+                    bv.initialize(denom, sec, dir, opt)
+                    
+                while bv.req_status()[0] != id003.IDLE:
+                    time.sleep(0.2)
+                bv.bv_status = None
         elif opt == b'p':
             print("Not implemented yet")
 
 
 def poll_loop(bv, stdout_lock, bv_lock, interval=0.2):
-    # get denom inhibit options
-    denom = 0
-    for k in CONFIG['bv.denom_inhibit']:
-        if CONFIG['bv.denom_inhibit'].getboolean(k):
-            denom |= id003.DENOMS[k]
-            
-    # get security options
-    sec = 0
-    for k in CONFIG['bv.security']:
-        if CONFIG['bv.security'].getboolean(k):
-            sec |= id003.DENOMS[k]
-            
-    # get direction options
-    dir = 0
-    for k in CONFIG['bv.direction']:
-        if CONFIG['bv.direction'].getboolean(k):
-            dir |= id003.DIRECTIONS[k]
-            
-    # get optional functions
-    opt = 0
-    for k in CONFIG['bv.optional']:
-        if CONFIG['bv.optional'].getboolean(k):
-            opt |= id003.OPTIONS[k]
+    denom = get_denoms()
+    sec = get_security()
+    dir = get_directions()
+    opt = get_optional()
     
     print("Please connect bill validator.")
-    bv.power_on([denom, 0], [sec, 0], [dir], [opt, 0])
+    bv.power_on(denom, sec, dir, opt)
     
     if bv.init_status == id003.POW_UP:
         logging.info("BV powered up normally.")
@@ -98,8 +135,9 @@ def poll_loop(bv, stdout_lock, bv_lock, interval=0.2):
         with bv_lock:
             status, data = bv.req_status()
             if (status, data) != bv.bv_status and status in bv.bv_events:
-                with stdout_lock:
+                if stdout_lock.acquire(timeout=0.5):
                     bv.bv_events[status](data)
+                    stdout_lock.release()
         bv.bv_status = (status, data)
         wait = interval - (time.time() - poll_start)
         if wait > 0.0:
@@ -152,10 +190,10 @@ def settings():
     settings_menu['d'] = "Direction enable/inhibit"
     settings_menu['o'] = "Optional functions"
     settings_menu['b'] = "Bar code ticket options"
-    settings_menu['q'] = "Main menu"
+    settings_menu['q'] = "Back"
     
     choice = display_menu(settings_menu, '>>>', "Settings",
-                          "Changes will take effect next time bill validator is powered on")
+                          "Changes will take effect next time bill validator is initialized")
     
     if choice == 'e':
         denom_settings()
@@ -165,6 +203,10 @@ def settings():
         direction_settings()
     elif choice == 'o':
         opt_settings()
+    elif choice == 'b':
+        t.wipe()
+        print("Barcode settings not available.")
+        input("Press enter to go back")
     
     return
 
