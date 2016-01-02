@@ -445,14 +445,25 @@ class BillVal:
             logging.info("Denom: %s" % self.bv_denoms[escrow])
             
         s_r = ''
-        while s_r not in ('s', 'r'):
-            s_r = input("(S)tack or (R)eturn? ").lower()
-            if s_r == 's':
-                logging.info("Telling BV to stack...")
+        while s_r not in ('1', '2', 'r'):
+            s_r = input("(1) Stack and acknowledge when bill passes stacker lever\n"
+                        "(2) Stack and acknowledge when bill is stored\n"
+                        "(R)eturn ").lower()
+            if s_r == '1':
+                logging.info("Sending Stack-1 command...")
                 self.accepting_denom = self.bv_denoms[escrow]
                 status = None
                 while status != ACK:
                     self.send_command(STACK_1, b'')
+                    status, data = self.read_response()
+                logging.debug("Received ACK")
+                self.bv_status = None
+            elif s_r = '2':
+                logging.info("Sending Stack-2 command...")
+                self.accepting_denom = self.bv_denoms[escrow]
+                status = None
+                while status != ACK:
+                    self.send_command(STACK_2, b'')
                     status, data = self.read_response()
                 logging.debug("Received ACK")
                 self.bv_status = None
