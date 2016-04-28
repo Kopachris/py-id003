@@ -458,7 +458,7 @@ class BillVal:
                     status, data = self.read_response()
                 logging.debug("Received ACK")
                 self.bv_status = None
-            elif s_r = '2':
+            elif s_r == '2':
                 logging.info("Sending Stack-2 command...")
                 self.accepting_denom = self.bv_denoms[escrow]
                 status = None
