@@ -1,3 +1,5 @@
+Update 16 August 2022: This repository is being archived as I have no plans to ever update it again.
+
 # py-id003
 Python module for interacting with bill validators using JCM's ID-003 serial protocol
 
